@@ -1,0 +1,8 @@
+Django==1.11.2
+django-filter==1.0.4
+djangorestframework==3.6.3
+djangorestframework-jwt==1.11.0
+
+beautifulsoup4==4.5.3
+Markdown==2.6.8
+urllib3==1.15.1

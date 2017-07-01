@@ -1,0 +1,65 @@
+from rest_framework import status
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from .serializers import TaskSerializer
+
+import credentials
+import datetime
+import ee
+import ee.mapclient
+
+
+def getNDVI(image):
+    nir = image.select('B5')
+    red = image.select('B4')
+    return nir.subtract(red).divide(nir.add(red))
+
+@api_view(['GET'])
+def task_ndvi(request, format=None):
+    """
+    NDVI Task
+    """
+    if request.method == 'GET':
+        
+        EE_ACCOUNT = credentials.EE_ACCOUNT
+        EE_PRIVATE_KEY_FILE =  credentials.EE_PRIVATE_KEY_FILE
+        EE_CREDENTIALS = ee.ServiceAccountCredentials(EE_ACCOUNT, EE_PRIVATE_KEY_FILE)
+
+        ee.Initialize(EE_CREDENTIALS)
+
+        geometry = ee.Geometry.Polygon([[
+            [-64.4309949874878,-31.464982360950497],
+            [-64.43112373352051,-31.46282263845819],
+            [-64.43653106689453,-31.462895850205864],
+            [-64.43640232086182,-31.464762730430145],
+            [-64.4309949874878,-31.464982360950497],
+        ]])
+
+        collection = ee.ImageCollection("LANDSAT/LC8_L1T_TOA").filterDate(datetime.datetime(2012,10,1), datetime.datetime(2017,3,1)).filterBounds(geometry)
+
+        maxNDVI = collection.map(getNDVI).max()
+        maxNDVI = maxNDVI.clip(geometry)
+
+        palette = 'FFFFFF,CE7E45,DF923D,F1B555,FCD163,99B718,74A901,66A000,529400,3E8601,207401,056201,004C00,023B01,012E01,011D01,011301'
+
+        opt = {
+            "min":.5, 
+            "max":1, 
+            "palette":palette
+        }
+
+        mapid = maxNDVI.getMapId(opt)
+        print type(maxNDVI)
+        print maxNDVI.toArray()
+
+        task_info = [{
+            "mapid" : mapid["mapid"],
+            "token" : mapid["token"],
+            "array" : maxNDVI.toArray(),
+            "downloadUrl" : str(maxNDVI.getDownloadURL()),
+            
+        }]
+        
+        serializer = TaskSerializer(task_info, many=True)
+        return Response(serializer.data)
+                
