@@ -9,8 +9,8 @@ from apps.field.views import FieldViewSet
 from apps.task.views import task_ndvi
 
 router = routers.DefaultRouter()
-router.register(r'user', UserViewSet)
-router.register(r'field', FieldViewSet)
+router.register(r'users', UserViewSet)
+router.register(r'fields', FieldViewSet)
 
 # Wire up our API using automatic URL routing.
 # Additionally, we include login URLs for the browsable API.
