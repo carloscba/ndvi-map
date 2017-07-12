@@ -1,26 +1,30 @@
-from rest_framework import status
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from .serializers import TaskSerializer
+from django.shortcuts import render
 
-import credentials
+from rest_framework.views import APIView
+from rest_framework.response import Response
+
+from . import serializers
+from rest_framework import status
+
+# Create your views here.
+
+from . import credentials
 import datetime
 import ee
 import ee.mapclient
 
+class MaxNdviView(APIView):
 
-def getNDVI(image):
-    nir = image.select('B5')
-    red = image.select('B4')
-    return nir.subtract(red).divide(nir.add(red))
+    serializer_class = serializers.TaskSerializer
+    def get_ndvi(self, image):
+        nir = image.select('B5')
+        red = image.select('B4')
+        return nir.subtract(red).divide(nir.add(red))
 
-@api_view(['GET'])
-def task_ndvi(request, format=None):
-    """
-    NDVI Task
-    """
-    if request.method == 'GET':
-        
+    def get(self, request, format=None):
+        """
+        NDVI Task
+        """
         EE_ACCOUNT = credentials.EE_ACCOUNT
         EE_PRIVATE_KEY_FILE =  credentials.EE_PRIVATE_KEY_FILE
         EE_CREDENTIALS = ee.ServiceAccountCredentials(EE_ACCOUNT, EE_PRIVATE_KEY_FILE)
@@ -37,8 +41,8 @@ def task_ndvi(request, format=None):
 
         collection = ee.ImageCollection("LANDSAT/LC8_L1T_TOA").filterDate(datetime.datetime(2012,10,1), datetime.datetime(2017,3,1)).filterBounds(geometry)
 
-        maxNDVI = collection.map(getNDVI).max()
-        maxNDVI = maxNDVI.clip(geometry)
+        max_ndvi = collection.map(self.get_ndvi).max()
+        max_ndvi = max_ndvi.clip(geometry)
 
         palette = 'FFFFFF,CE7E45,DF923D,F1B555,FCD163,99B718,74A901,66A000,529400,3E8601,207401,056201,004C00,023B01,012E01,011D01,011301'
 
@@ -48,18 +52,15 @@ def task_ndvi(request, format=None):
             "palette":palette
         }
 
-        mapid = maxNDVI.getMapId(opt)
-        print type(maxNDVI)
-        print maxNDVI.toArray()
-
-        task_info = [{
+        mapid = max_ndvi.getMapId(opt)
+        
+        info = [{
             "mapid" : mapid["mapid"],
             "token" : mapid["token"],
-            "array" : maxNDVI.toArray(),
-            "downloadUrl" : str(maxNDVI.getDownloadURL()),
+            "array" : max_ndvi.toArray(),
+            "downloadUrl" : str(max_ndvi.getDownloadURL()),
             
         }]
         
-        serializer = TaskSerializer(task_info, many=True)
-        return Response(serializer.data)
-                
+        serializer = serializers.TaskSerializer(info, many=True)
+        return Response(serializer.data)                
